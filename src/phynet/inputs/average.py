@@ -15,6 +15,14 @@ import pandas as pd
 from numpy.lib.stride_tricks import sliding_window_view
 
 
+def get_alpha(inertia):
+
+    if inertia == "weak":
+        return 0.8
+    elif inertia == "strong":
+        return 0.2
+
+
 def compute_weights(n, alpha, which="moving"):
     """Compute EWM weights according to calculation type.
 
@@ -38,10 +46,10 @@ def compute_weights(n, alpha, which="moving"):
     """
 
     if which == "moving":
-        w = [(1.0 - alpha) ** (n - t) for t in range(n + 1)]
+        w = [(1.0 - alpha) ** (n - (t + 1)) for t in range(n)]
 
     elif which == "interpolation":
-        w = [alpha * (1.0 - alpha) ** (n - t) for t in range(n + 1)]
+        w = [alpha * (1.0 - alpha) ** (n - (t + 1)) for t in range(n)]
 
     weights = pd.Series(w, name=n)
 
