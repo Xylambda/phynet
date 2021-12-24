@@ -15,15 +15,35 @@ import pandas as pd
 from numpy.lib.stride_tricks import sliding_window_view
 
 
-def compute_weights(n, alpha):
+def compute_weights(n, alpha, which="moving"):
+    """Compute EWM weights according to calculation type.
 
-    weights = pd.DataFrame()
+    Parameters
+    ----------
+    n : int
+        Window size.
+    alpha : float
+        EWM parameter.
+    which : str, optional
+        Calculation formulation, by default "moving"
 
-    for _n in range(1, n):
+    Returns
+    -------
+    weights : pandas.Series
 
-        w = [(1.0 - alpha) ** (_n - t) for t in range(_n + 1)]
-        w = pd.Series(w, name=str(_n) + "_start")
-        weights = pd.concat([weights, w], axis=1)
+    Notes
+    -----
+    Calculation formulation "moving" divides by the sum of weights,
+    hence the first sample weight is one.
+    """
+
+    if which == "moving":
+        w = [(1.0 - alpha) ** (n - t) for t in range(n + 1)]
+
+    elif which == "interpolation":
+        w = [alpha * (1.0 - alpha) ** (n - t) for t in range(n + 1)]
+
+    weights = pd.Series(w, name=n)
 
     return weights
 
@@ -122,3 +142,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     x, y, view = generate_data_ewm(alpha=0.1, returns=x, window=WINDOW)
     check_inertia = pd.concat([x, y], axis=1).copy(deep=True)
+
+    # -------------------------------------------------------------------------
+    w_adj = compute_weights(n=WINDOW, alpha=0.2)
+    w_intp = compute_weights(n=WINDOW, alpha=0.2, which="interpolation")
