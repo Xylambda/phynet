@@ -12,6 +12,7 @@ References
 
 import numpy as np
 import pandas as pd
+from numpy.lib.stride_tricks import sliding_window_view
 
 
 def compute_weights(n, alpha):
@@ -32,6 +33,7 @@ def compute_weights(n, alpha):
 
 def generate_data_ewm(
     alpha,
+    window,
     mu=None,
     sigma=None,
     nt=None,
@@ -63,6 +65,10 @@ def generate_data_ewm(
         Normally distributed returns.
     ewm : pandas.DataFrame
         Associated exponentially weighted average.
+    view : numpy.array
+        - Rows: samples to compute the EWM
+        - Columns: values in the window moving frame of reference,
+        towards the right to be at the present.
 
     Notes
     -----
@@ -70,14 +76,22 @@ def generate_data_ewm(
     - Parameter `adjust=True` for pandas.DataFrame.ewm function.
     """
 
+    # Generate synthetic returns
     if returns is None:
         returns = np.random.normal(loc=mu, scale=sigma, size=(nt, num))
         returns = pd.DataFrame(returns)
 
-    ewm = returns.ewm(alpha=alpha, adjust=True)
+    # Compute target
+    ewm = returns.ewm(alpha=alpha, adjust=True, min_periods=window)
     ewm = ewm.mean()
+    ewm = ewm.dropna()
 
-    return returns, ewm
+    # Create window views for training
+    view = sliding_window_view(returns, window_shape=window, axis=0)
+    view = np.stack(view, axis=1)
+    view = view[0]
+
+    return returns, ewm, view
 
 
 if __name__ == "__main__":
@@ -96,14 +110,15 @@ if __name__ == "__main__":
 
     MU = 0.001
     SIGMA = 0.1
-    NT = 100
+    NT = 261 * 5
+    WINDOW = 21 * 2
 
     # -------------------------------------------------------------------------
-    x, y = generate_data_ewm(alpha=0.9, mu=MU, sigma=SIGMA, nt=NT, num=1)
+    x, y, view = generate_data_ewm(
+        alpha=0.9, mu=MU, sigma=SIGMA, nt=NT, num=1, window=WINDOW
+    )
     check_memory = pd.concat([x, y], axis=1).copy(deep=True)
 
     # -------------------------------------------------------------------------
-    x, y = generate_data_ewm(alpha=0.1, returns=x)
+    x, y, view = generate_data_ewm(alpha=0.1, returns=x, window=WINDOW)
     check_inertia = pd.concat([x, y], axis=1).copy(deep=True)
-
-    # breakpoint()
